@@ -1,0 +1,31 @@
+{
+  "name": "josh",
+  "version": "0.0.0",
+  "description": "JavaScript Object Shell",
+  "main": "index.js",
+  "bin": "josh",
+  "scripts": {
+    "compile": "nearleyc src/parser/josh.ne >| src/parser/grammar.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daniel-pedersen/josh.git"
+  },
+  "keywords": [
+    "shell"
+  ],
+  "author": "Daniel Pedersen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/daniel-pedersen/josh/issues"
+  },
+  "homepage": "https://github.com/daniel-pedersen/josh#readme",
+  "dependencies": {
+    "moo": "^0.4.3",
+    "nearley": "^2.15.1"
+  },
+  "devDependencies": {
+    "standard": "^12.0.1"
+  }
+}

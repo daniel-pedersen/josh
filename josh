@@ -1,0 +1,65 @@
+#!/usr/bin/env node
+if (!process.stdout.isTTY || !process.stdin.isTTY) die('tty')
+
+const parse = require('./src/parser')
+
+process.stdin.setRawMode(true)
+process.stdin.setEncoding('utf8')
+
+prompt()
+
+let buffer = ''
+
+process.stdin.on('data', chunk => {
+  const charCode = chunk.charCodeAt(0)
+  if (charCode > 0x19) return write(chunk)
+  switch (charCode) {
+    case 0x00:
+    case 0x03:
+      buffer = ''
+      process.stdout.write('^C\n')
+      break
+    case 0x04:
+      process.stdout.write('exit\n')
+      process.exit()
+    case 0x05:
+      process.stdout.write('\n')
+      console.log(buffer)
+      break
+    case 0x10:
+    case 0x0d:
+      process.stdout.write('\n')
+      console.log(parse(buffer))
+      buffer = ''
+      break
+    default:
+      process.stdout.write('\n')
+      console.log(charCode)
+  }
+  prompt()
+})
+
+function write (str) {
+  if (str === '\x7f') {
+    if (buffer === '') return
+    buffer = buffer.slice(0, -1)
+    process.stdout.moveCursor(-1, 0)
+    process.stdout.write('\x7f')
+  } else {
+    buffer += str
+    process.stdout.write(str)
+  }
+}
+
+function prompt () {
+  process.stdout.write(`${process.cwd()} $ `)
+}
+
+function die (reason) {
+  const errors = require('./errors')
+  const { message, code } = errors[reason] || {}
+  if (message) {
+    process.stderr.write(`josh: ${message}\n`)
+  }
+  process.exit(code)
+}
