@@ -23,7 +23,7 @@
   "homepage": "https://github.com/daniel-pedersen/josh#readme",
   "dependencies": {
     "moo": "^0.4.3",
-    "nearley": "^2.15.1"
+    "nearley": "^2.16.0"
   },
   "devDependencies": {
     "standard": "^12.0.1"
