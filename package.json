@@ -16,7 +16,7 @@
     "shell"
   ],
   "author": "Daniel Pedersen",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/daniel-pedersen/josh/issues"
   },
