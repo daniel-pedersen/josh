@@ -1,11 +1,29 @@
 @{%
 const lexer = require('./lexer')
-const nuller = () => null
+const nil = () => null
+const nth = i => x => x[i - 1]
+const pick = (p, i = 1) => x => x[i - 1][p]
 %}
 @lexer lexer
 
 statement ->
-    %identifier (_ %identifier):* (_:? comment):? {% ([...x]) => x %}
+    _ command:? _ %comment:? %endOfStatement  {% nth(2) %}
 
-_ -> %whitespace {% nuller %}
-comment -> %comment {% nuller %}
+command ->
+    command _ separator _ argumentList  {% ([c,, sep,, s]) => [sep, [c, s]] %}
+  | argumentList                        {% id %}
+
+argumentList ->
+    argumentList %whitespace _ argument {% ([s,,, w]) => s.concat(w) %}
+  | argument
+
+argument ->
+    %path               {% x => x[0].value.replace(/\\(.)/, '$1') %}
+  | %doubleQuotedString {% x => parseString(x[0]) %}
+  | %singleQuotedString {% x => parseString(x[0]) %}
+
+separator ->
+    %pipe     {% id %}
+  | %redirect {% id %}
+
+_  -> %whitespace:* {% nil %}

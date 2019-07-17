@@ -1,11 +1,16 @@
 const moo = require('moo')
+
+const escaped = '\n; \t#"\\\'|<>'
+
 module.exports = moo.compile({
+  endOfStatement: { match: /[\n;]/, lineBreaks: true },
   whitespace: /[ \t]+/,
   comment: /#.*?$/,
-  string: /"(?:\\["\\]|[^\n"\\])*"/,
-  identifier: /[A-Za-z_][\w]+/,
   pipe: '|',
-  redirect: ['<', '>', '>>', '>|']
+  redirect: ['<', '>', '>>', '>|'],
+  doubleQuotedString: /"(?:\\"|[^"])*"?/,
+  singleQuotedString: /'(?:\\'|[^'])*'?/,
+  path: RegExp(`(?:\\\\[${escaped}]|[^${escaped}])+`)
   // control: ['\n', '|', '||', '&&', ';'],
   // redirect: ['>', '>>', '2>', '2>>', '>|', '2>|', '&>', '&>>', '&>|']
 })

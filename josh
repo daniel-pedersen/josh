@@ -1,58 +1,139 @@
 #!/usr/bin/env node
-if (!process.stdout.isTTY || !process.stdin.isTTY) die('tty')
+const { cc, parse, builtin } = require('./src')
+const { spawnSync } = require('child_process')
 
-const parse = require('./src/parser')
+if (!process.stdout.isTTY || !process.stdin.isTTY) die('tty')
 
 process.stdin.setRawMode(true)
 process.stdin.setEncoding('utf8')
 
+let x = 0
+let buffer = []
+
 prompt()
 
-let buffer = ''
-
 process.stdin.on('data', chunk => {
-  const charCode = chunk.charCodeAt(0)
-  if (charCode > 0x19) return write(chunk)
-  switch (charCode) {
-    case 0x00:
-    case 0x03:
-      buffer = ''
-      process.stdout.write('^C\n')
-      break
-    case 0x04:
-      process.stdout.write('exit\n')
-      process.exit()
-    case 0x05:
-      process.stdout.write('\n')
-      console.log(buffer)
-      break
-    case 0x10:
-    case 0x0d:
-      process.stdout.write('\n')
-      console.log(parse(buffer))
-      buffer = ''
-      break
-    default:
-      process.stdout.write('\n')
-      console.log(charCode)
+  if (!cc.isControl(chunk)) return write(chunk)
+  switch (chunk[0]) {
+    case cc.ETX: return reset('^C', true)
+    case cc.EOT: return exit()
+    case cc.ENQ: return log(x, buffer)
+    case cc.LF: return run()
+    case cc.FF: return clear()
+    case cc.CR: return run()
+    case cc.BS:
+    case cc.DEL: return remove()
+    case cc.ESC: return escape(chunk)
+    default: log(Buffer.from(chunk))
   }
-  prompt()
 })
 
-function write (str) {
-  if (str === '\x7f') {
-    if (buffer === '') return
-    buffer = buffer.slice(0, -1)
-    process.stdout.moveCursor(-1, 0)
-    process.stdout.write('\x7f')
+function clear () {
+  spawnSync('clear', { stdio: [0, 1, 2] })
+  prompt()
+}
+
+function run () {
+  const parsed = parse(buffer.join('') + '\n')
+  reset('')
+  if (parsed == null) {
+  } else if (typeof parsed[0] === 'string') {
+    if (builtin[parsed[0]] != null) {
+      try {
+        builtin[parsed[0]](...parsed.slice(1))
+      } catch (err) {
+        process.stderr.write(`-josh: ${parsed[0]}: ${err.message}\n`)
+      }
+    } else {
+      const { error } = spawnSync(parsed[0], parsed.slice(1), { stdio: [0, 1, 2] })
+      if (error) {
+        switch (error.code) {
+          case 'ENOENT':
+            process.stderr.write(`-josh: ${error.path}: command not found\n`)
+            break
+          default:
+            process.stderr.write(`-josh: ${error.code}\n`)
+        }
+      }
+    }
   } else {
-    buffer += str
-    process.stdout.write(str)
+    console.log(JSON.stringify(parsed, null, 2))
   }
+  prompt()
+}
+
+function log (...x) {
+  const str = buffer.join('')
+  reset('')
+  console.log(...x)
+  prompt()
+  write(str)
+}
+
+function write (str) {
+  buffer.splice(x, 0, ...str.split(''))
+  x += str.length
+  process.stdout.write(str)
+  writeBuffer()
+}
+
+function writeBuffer (from = x) {
+  const str = buffer.slice(from).join('')
+  process.stdout.write(str)
+  process.stdout.clearLine(1)
+  process.stdout.moveCursor(-str.length)
+}
+
+function remove (n = 1) {
+  move(-n)
+  buffer.splice(x, n)
+  writeBuffer()
+}
+
+function reset (endLine, writePrompt) {
+  x = 0
+  buffer = []
+  if (endLine == null) {
+    move(-x)
+    process.stdout.clearLine(1)
+  } else {
+    process.stdout.write(endLine + '\n')
+    if (writePrompt) prompt()
+  }
+}
+
+function move (dx) {
+  const x0 = x
+  x += dx
+  if (x > buffer.length) {
+    x = buffer.length
+    process.stdout.write(cc.BEL)
+  } else if (x < 0) {
+    x = 0
+    process.stdout.write(cc.BEL)
+  }
+  process.stdout.moveCursor(x - x0)
+}
+
+function escape (str) {
+  switch (str[1]) {
+    case '[':
+      if (str[2] === 'C') return move(1)
+      if (str[2] === 'D') return move(-1)
+  }
+  log(Buffer.from(str))
 }
 
 function prompt () {
   process.stdout.write(`${process.cwd()} $ `)
+}
+
+function exit () {
+  if (x === 0) {
+    process.stdout.write('exit\n')
+    process.exit(0)
+  }
+  process.stdout.write(cc.BEL)
 }
 
 function die (reason) {
